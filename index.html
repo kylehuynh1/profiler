@@ -1,0 +1,1888 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+
+<title>Profiler</title>
+
+<style>
+:root {
+    --bg: #080808;
+    --border: #333;
+    --soft: #222;
+    --text: #fff;
+    --muted: #888;
+}
+
+* {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: Arial, Helvetica, sans-serif;
+    padding:
+        max(35px, env(safe-area-inset-top))
+        20px
+        max(40px, env(safe-area-inset-bottom));
+}
+
+.app {
+    max-width: 650px;
+    margin: auto;
+}
+
+.header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+}
+
+h1 {
+    margin: 0;
+    font-size: clamp(38px, 12vw, 64px);
+    letter-spacing: 6px;
+}
+
+.subtitle {
+    color: var(--muted);
+    letter-spacing: 2px;
+    font-size: 10px;
+    margin-top: 6px;
+}
+
+.live {
+    color: var(--muted);
+    font-size: 10px;
+    letter-spacing: 2px;
+    margin-top: 8px;
+}
+
+.live.active {
+    color: white;
+}
+
+.live.active::before {
+    content: "●";
+    margin-right: 7px;
+}
+
+.status {
+    margin: 35px 0 18px;
+    color: var(--muted);
+    font-size: 12px;
+}
+
+.stats {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    border-top: 1px solid var(--soft);
+    border-bottom: 1px solid var(--soft);
+    margin-bottom: 20px;
+}
+
+.stat {
+    padding: 14px 5px;
+    text-align: center;
+}
+
+.stat span {
+    display: block;
+    color: var(--muted);
+    font-size: 8px;
+    letter-spacing: 1.5px;
+    margin-bottom: 5px;
+}
+
+.scan-button {
+    width: 100%;
+    padding: 18px;
+    border: none;
+    background: white;
+    color: black;
+    font-weight: bold;
+    letter-spacing: 2px;
+}
+
+.scan-button.scanning {
+    background: transparent;
+    color: white;
+    border: 1px solid white;
+}
+
+.controls {
+    display: flex;
+    gap: 8px;
+    margin: 25px 0 15px;
+}
+
+.controls input,
+.controls select {
+    background: #0c0c0c;
+    color: white;
+    border: 1px solid var(--border);
+    padding: 11px;
+}
+
+.controls input {
+    flex: 1;
+    min-width: 0;
+}
+
+.device {
+    border: 1px solid var(--border);
+    padding: 15px;
+    margin-bottom: 10px;
+    cursor: pointer;
+}
+
+.device-top {
+    display: flex;
+    justify-content: space-between;
+    gap: 15px;
+}
+
+.device-name {
+    font-weight: bold;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.device-rssi {
+    white-space: nowrap;
+}
+
+.device-info {
+    color: var(--muted);
+    margin-top: 8px;
+    font-size: 11px;
+    line-height: 1.7;
+}
+
+.device-id {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.signal-bar {
+    height: 2px;
+    background: #222;
+    margin-top: 12px;
+}
+
+.signal-fill {
+    height: 100%;
+    background: white;
+}
+
+.lost {
+    opacity: .3;
+}
+
+.empty {
+    text-align: center;
+    color: var(--muted);
+    padding: 40px;
+}
+
+/* TARGET */
+
+.target-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 100;
+    background: #080808;
+    overflow-y: auto;
+    padding:
+        max(35px, env(safe-area-inset-top))
+        20px
+        max(40px, env(safe-area-inset-bottom));
+}
+
+.hidden {
+    display: none;
+}
+
+.target {
+    max-width: 650px;
+    margin: auto;
+}
+
+.target-header {
+    display: flex;
+    justify-content: space-between;
+}
+
+.target-label,
+.section-label {
+    color: var(--muted);
+    font-size: 9px;
+    letter-spacing: 2px;
+}
+
+.target-name {
+    font-size: 28px;
+    margin: 8px 0;
+}
+
+.target-id {
+    color: var(--muted);
+    font-size: 10px;
+    word-break: break-all;
+}
+
+.close {
+    background: transparent;
+    border: none;
+    color: white;
+    font-size: 34px;
+}
+
+.target-signal {
+    margin-top: 50px;
+    text-align: center;
+}
+
+.big-rssi {
+    font-size: 55px;
+}
+
+.big-proximity {
+    color: var(--muted);
+    letter-spacing: 4px;
+    font-size: 11px;
+}
+
+.target-bar {
+    height: 4px;
+    background: #222;
+    margin: 25px 0 15px;
+}
+
+.target-fill {
+    height: 100%;
+    background: white;
+}
+
+.big-trend {
+    letter-spacing: 2px;
+    font-size: 12px;
+}
+
+.target-grid {
+    margin-top: 40px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    border: 1px solid var(--border);
+}
+
+.target-stat {
+    padding: 15px;
+    border: 1px solid var(--soft);
+}
+
+.target-stat span {
+    display: block;
+    color: var(--muted);
+    font-size: 8px;
+    margin-bottom: 6px;
+}
+
+canvas {
+    display: block;
+    width: 100%;
+    height: 140px;
+    border: 1px solid var(--border);
+    margin-top: 10px;
+}
+
+.section {
+    margin-top: 35px;
+}
+
+/* RAW DATA */
+
+.raw-box {
+    border: 1px solid var(--border);
+    margin-top: 12px;
+}
+
+.raw-row {
+    padding: 14px;
+    border-bottom: 1px solid var(--soft);
+}
+
+.raw-row:last-child {
+    border-bottom: none;
+}
+
+.raw-key {
+    color: var(--muted);
+    font-size: 8px;
+    letter-spacing: 1.5px;
+    margin-bottom: 7px;
+}
+
+.raw-value {
+    font-family: monospace;
+    font-size: 11px;
+    line-height: 1.6;
+    word-break: break-all;
+}
+
+.raw-entry {
+    border-top: 1px solid #1b1b1b;
+    padding-top: 8px;
+    margin-top: 8px;
+}
+
+.alias {
+    display: flex;
+    margin-top: 30px;
+}
+
+.alias input {
+    flex: 1;
+    min-width: 0;
+    background: transparent;
+    border: 1px solid var(--border);
+    color: white;
+    padding: 14px;
+}
+
+.alias button {
+    border: none;
+    background: white;
+    color: black;
+    padding: 0 20px;
+    font-weight: bold;
+}
+
+</style>
+</head>
+
+<body>
+
+<div class="app">
+
+    <div class="header">
+        <div>
+            <h1>PROFILER</h1>
+            <div class="subtitle">PASSIVE BLE SIGNAL ANALYSIS</div>
+        </div>
+
+        <div id="live" class="live">OFFLINE</div>
+    </div>
+
+    <div id="status" class="status">
+        Checking Bluetooth support...
+    </div>
+
+    <div class="stats">
+        <div class="stat">
+            <span>DETECTED</span>
+            <strong id="detectedCount">0</strong>
+        </div>
+
+        <div class="stat">
+            <span>ACTIVE</span>
+            <strong id="activeCount">0</strong>
+        </div>
+
+        <div class="stat">
+            <span>STRONGEST</span>
+            <strong id="strongest">--</strong>
+        </div>
+    </div>
+
+    <button id="scanButton" class="scan-button">
+        START LIVE SCAN
+    </button>
+
+    <div class="controls">
+        <input id="search" placeholder="FILTER SIGNALS">
+
+        <select id="sort">
+            <option value="signal">SIGNAL</option>
+            <option value="recent">RECENT</option>
+            <option value="name">NAME</option>
+        </select>
+    </div>
+
+    <div id="deviceList">
+        <div class="empty">NO SIGNAL DATA</div>
+    </div>
+
+</div>
+
+
+<div id="targetOverlay" class="target-overlay hidden">
+
+<div class="target">
+
+    <div class="target-header">
+
+        <div>
+            <div class="target-label">TARGET SIGNAL</div>
+
+            <div id="targetName" class="target-name">
+                UNKNOWN DEVICE
+            </div>
+
+            <div id="targetId" class="target-id">--</div>
+        </div>
+
+        <button id="closeTarget" class="close">×</button>
+
+    </div>
+
+
+    <div class="target-signal">
+
+        <div id="targetRSSI" class="big-rssi">--</div>
+
+        <div id="targetProximity" class="big-proximity">
+            UNKNOWN
+        </div>
+
+        <div class="target-bar">
+            <div id="targetFill" class="target-fill"></div>
+        </div>
+
+        <div id="targetTrend" class="big-trend">
+            ACQUIRING SIGNAL
+        </div>
+
+    </div>
+
+
+    <div class="target-grid">
+
+        <div class="target-stat">
+            <span>FIRST SEEN</span>
+            <strong id="firstSeen">--</strong>
+        </div>
+
+        <div class="target-stat">
+            <span>LAST SEEN</span>
+            <strong id="lastSeen">--</strong>
+        </div>
+
+        <div class="target-stat">
+            <span>STRONGEST</span>
+            <strong id="strongestSeen">--</strong>
+        </div>
+
+        <div class="target-stat">
+            <span>SAMPLES</span>
+            <strong id="samples">0</strong>
+        </div>
+
+    </div>
+
+
+    <div class="section">
+        <div class="section-label">SIGNAL HISTORY</div>
+        <canvas id="graph"></canvas>
+    </div>
+
+
+    <!-- RAW BLE FINGERPRINT -->
+
+    <div class="section">
+
+        <div class="section-label">
+            BLE FINGERPRINT
+        </div>
+
+        <div class="raw-box">
+
+            <div class="raw-row">
+                <div class="raw-key">ADVERTISED NAME</div>
+                <div id="rawName" class="raw-value">--</div>
+            </div>
+
+            <div class="raw-row">
+                <div class="raw-key">TX POWER</div>
+                <div id="rawTxPower" class="raw-value">--</div>
+            </div>
+
+            <div class="raw-row">
+                <div class="raw-key">APPEARANCE</div>
+                <div id="rawAppearance" class="raw-value">--</div>
+            </div>
+
+            <div class="raw-row">
+                <div class="raw-key">SERVICE UUIDS</div>
+                <div id="rawUUIDs" class="raw-value">--</div>
+            </div>
+
+            <div class="raw-row">
+                <div class="raw-key">MANUFACTURER DATA</div>
+                <div id="rawManufacturer" class="raw-value">--</div>
+            </div>
+
+            <div class="raw-row">
+                <div class="raw-key">SERVICE DATA</div>
+                <div id="rawService" class="raw-value">--</div>
+            </div>
+
+            <div class="raw-row">
+                <div class="raw-key">BLUETOOTH ADDRESS</div>
+                <div class="raw-value">
+                    NOT EXPOSED BY iOS
+                </div>
+            </div>
+
+            <div class="raw-row">
+                <div class="raw-key">IP ADDRESS</div>
+                <div class="raw-value">
+                    NOT AVAILABLE VIA BLE
+                </div>
+            </div>
+
+        </div>
+
+    </div>
+
+
+    <div class="alias">
+
+        <input
+            id="aliasInput"
+            placeholder="DEVICE ALIAS"
+            maxlength="30"
+        >
+
+        <button id="saveAlias">SAVE</button>
+
+    </div>
+
+</div>
+</div>
+
+
+<script>
+
+
+const devices = new Map();
+
+let scan = null;
+let scanning = false;
+let selectedDeviceId = null;
+
+const LOST_AFTER = 10000;
+const HISTORY_LIMIT = 50;
+
+
+const statusEl =
+    document.getElementById("status");
+
+const scanButton =
+    document.getElementById("scanButton");
+
+const deviceList =
+    document.getElementById("deviceList");
+
+const detectedCount =
+    document.getElementById("detectedCount");
+
+const activeCount =
+    document.getElementById("activeCount");
+
+const strongestEl =
+    document.getElementById("strongest");
+
+const live =
+    document.getElementById("live");
+
+const search =
+    document.getElementById("search");
+
+const sort =
+    document.getElementById("sort");
+
+
+
+if (!navigator.bluetooth) {
+
+    statusEl.textContent =
+        "Bluetooth API: NOT AVAILABLE";
+
+    scanButton.disabled = true;
+
+}
+
+else if (
+    typeof navigator.bluetooth.requestLEScan !== "function"
+) {
+
+    statusEl.textContent =
+        "Live BLE scanning unavailable";
+
+    scanButton.disabled = true;
+
+}
+
+else {
+
+    statusEl.textContent =
+        "Bluetooth API: READY";
+}
+
+
+function proximity(rssi) {
+
+    if (rssi >= -50)
+        return "VERY CLOSE";
+
+    if (rssi >= -65)
+        return "CLOSE";
+
+    if (rssi >= -80)
+        return "NEARBY";
+
+    return "WEAK";
+}
+
+
+function signalPercent(rssi) {
+
+    const weak = -100;
+    const strong = -35;
+
+    const value =
+        Math.max(
+            weak,
+            Math.min(strong, rssi)
+        );
+
+    return (
+        (value - weak) /
+        (strong - weak)
+    ) * 100;
+}
+
+
+function smoothRSSI(previous, current) {
+
+    if (
+        previous === undefined ||
+        previous === null
+    )
+        return current;
+
+    const alpha = .28;
+
+    return (
+        alpha * current +
+        (1 - alpha) * previous
+    );
+}
+
+
+function parseDataMap(dataMap) {
+
+    const output = [];
+
+    if (!dataMap)
+        return output;
+
+    try {
+
+        dataMap.forEach(
+            (value, key) => {
+
+                let bytes;
+
+                /*
+                    Different implementations may
+                    expose DataView/ArrayBuffer-like
+                    objects slightly differently.
+                */
+
+                if (value instanceof DataView) {
+
+                    bytes =
+                        new Uint8Array(
+                            value.buffer,
+                            value.byteOffset,
+                            value.byteLength
+                        );
+
+                }
+
+                else if (
+                    value instanceof ArrayBuffer
+                ) {
+
+                    bytes =
+                        new Uint8Array(value);
+
+                }
+
+                else if (
+                    ArrayBuffer.isView(value)
+                ) {
+
+                    bytes =
+                        new Uint8Array(
+                            value.buffer,
+                            value.byteOffset,
+                            value.byteLength
+                        );
+
+                }
+
+                else {
+
+                    bytes =
+                        new Uint8Array(0);
+                }
+
+
+                const hex =
+                    Array.from(bytes)
+                        .map(byte =>
+                            byte
+                                .toString(16)
+                                .padStart(2, "0")
+                        )
+                        .join("")
+                        .toUpperCase();
+
+
+                output.push({
+                    key: String(key),
+                    hex: hex || "(empty)"
+                });
+            }
+        );
+
+    }
+
+    catch (error) {
+
+        console.error(
+            "BLE data parsing failed",
+            error
+        );
+    }
+
+    return output;
+}
+
+
+function loadAliases() {
+
+    try {
+
+        return JSON.parse(
+            localStorage.getItem(
+                "profilerAliases"
+            )
+        ) || {};
+
+    }
+
+    catch {
+
+        return {};
+    }
+}
+
+
+function saveDeviceAlias(id, alias) {
+
+    const aliases =
+        loadAliases();
+
+    const clean =
+        alias.trim();
+
+    if (clean)
+        aliases[id] = clean;
+
+    else
+        delete aliases[id];
+
+
+    localStorage.setItem(
+        "profilerAliases",
+        JSON.stringify(aliases)
+    );
+
+
+    const device =
+        devices.get(id);
+
+    if (device)
+        device.alias =
+            clean || null;
+}
+
+
+function advertisementHandler(event) {
+
+    if (!event.device)
+        return;
+
+
+    if (
+        typeof event.rssi !== "number"
+    )
+        return;
+
+
+    const id =
+        event.device.id;
+
+
+    if (!id)
+        return;
+
+
+    const now =
+        Date.now();
+
+
+    const manufacturerData =
+        parseDataMap(
+            event.manufacturerData
+        );
+
+
+    const serviceData =
+        parseDataMap(
+            event.serviceData
+        );
+
+
+    const uuids =
+        Array.from(
+            event.uuids || []
+        );
+
+
+    let device =
+        devices.get(id);
+
+
+    if (!device) {
+
+        const aliases =
+            loadAliases();
+
+
+        device = {
+
+            id: id,
+
+            name:
+                event.device.name ||
+                event.name ||
+                null,
+
+            alias:
+                aliases[id] ||
+                null,
+
+            rssi:
+                event.rssi,
+
+            rawRSSI:
+                event.rssi,
+
+            strongest:
+                event.rssi,
+
+            txPower:
+                event.txPower ??
+                null,
+
+            appearance:
+                event.appearance ??
+                null,
+
+            uuids:
+                uuids,
+
+            manufacturerData:
+                manufacturerData,
+
+            serviceData:
+                serviceData,
+
+            firstSeen:
+                now,
+
+            lastSeen:
+                now,
+
+            samples:
+                1,
+
+            history:
+                [event.rssi]
+        };
+
+
+        devices.set(
+            id,
+            device
+        );
+
+    }
+
+    else {
+
+        device.name =
+            event.device.name ||
+            event.name ||
+            device.name;
+
+
+        device.rawRSSI =
+            event.rssi;
+
+
+        device.rssi =
+            smoothRSSI(
+                device.rssi,
+                event.rssi
+            );
+
+
+        device.strongest =
+            Math.max(
+                device.strongest,
+                event.rssi
+            );
+
+
+        if (
+            event.txPower !== undefined &&
+            event.txPower !== null
+        ) {
+
+            device.txPower =
+                event.txPower;
+        }
+
+
+        if (
+            event.appearance !== undefined &&
+            event.appearance !== null
+        ) {
+
+            device.appearance =
+                event.appearance;
+        }
+
+
+        if (uuids.length) {
+
+            device.uuids =
+                uuids;
+        }
+
+
+        if (
+            manufacturerData.length
+        ) {
+
+            device.manufacturerData =
+                manufacturerData;
+        }
+
+
+        if (
+            serviceData.length
+        ) {
+
+            device.serviceData =
+                serviceData;
+        }
+
+
+        device.lastSeen =
+            now;
+
+
+        device.samples++;
+
+
+        device.history.push(
+            device.rssi
+        );
+
+
+        if (
+            device.history.length >
+            HISTORY_LIMIT
+        ) {
+
+            device.history.shift();
+        }
+    }
+
+
+    render();
+}
+
+
+async function startScan() {
+
+    try {
+
+        statusEl.textContent =
+            "Starting BLE scan...";
+
+
+        navigator.bluetooth.addEventListener(
+            "advertisementreceived",
+            advertisementHandler
+        );
+
+
+        scan =
+            await navigator.bluetooth.requestLEScan({
+
+                acceptAllAdvertisements:
+                    true,
+
+                keepRepeatedDevices:
+                    true
+            });
+
+
+        scanning =
+            true;
+
+
+        scanButton.textContent =
+            "STOP SCAN";
+
+
+        scanButton.classList.add(
+            "scanning"
+        );
+
+
+        live.textContent =
+            "LIVE";
+
+
+        live.classList.add(
+            "active"
+        );
+
+
+        statusEl.textContent =
+            "LIVE SCAN ACTIVE";
+
+    }
+
+    catch (error) {
+
+        navigator.bluetooth.removeEventListener(
+            "advertisementreceived",
+            advertisementHandler
+        );
+
+
+        statusEl.innerHTML =
+            `
+            SCAN FAILED<br>
+            ${escapeHTML(
+                error.name ||
+                "Error"
+            )}
+            <br>
+            ${escapeHTML(
+                error.message ||
+                String(error)
+            )}
+            `;
+
+
+        console.error(error);
+    }
+}
+
+
+function stopScan() {
+
+    if (scan) {
+
+        try {
+            scan.stop();
+        }
+
+        catch (error) {
+            console.error(error);
+        }
+
+        scan = null;
+    }
+
+
+    navigator.bluetooth.removeEventListener(
+        "advertisementreceived",
+        advertisementHandler
+    );
+
+
+    scanning =
+        false;
+
+
+    scanButton.textContent =
+        "START LIVE SCAN";
+
+
+    scanButton.classList.remove(
+        "scanning"
+    );
+
+
+    live.textContent =
+        "OFFLINE";
+
+
+    live.classList.remove(
+        "active"
+    );
+
+
+    statusEl.textContent =
+        "SCAN STOPPED";
+}
+
+
+scanButton.addEventListener(
+    "click",
+    () => {
+
+        if (scanning)
+            stopScan();
+
+        else
+            startScan();
+    }
+);
+
+function isActive(device) {
+
+    return (
+        Date.now() -
+        device.lastSeen
+    ) < LOST_AFTER;
+}
+
+
+function displayName(device) {
+
+    return (
+        device.alias ||
+        device.name ||
+        "UNKWN DEVICE"
+    );
+}
+
+
+function render() {
+
+    let list =
+        [...devices.values()];
+
+
+    const active =
+        list.filter(isActive);
+
+
+    detectedCount.textContent =
+        devices.size;
+
+
+    activeCount.textContent =
+        active.length;
+
+
+    if (active.length) {
+
+        const strongest =
+            [...active].sort(
+                (a, b) =>
+                    b.rssi -
+                    a.rssi
+            )[0];
+
+
+        strongestEl.textContent =
+            `${Math.round(
+                strongest.rssi
+            )} dBm`;
+
+    }
+
+    else {
+
+        strongestEl.textContent =
+            "--";
+    }
+
+
+    const query =
+        search.value
+            .trim()
+            .toLowerCase();
+
+
+    if (query) {
+
+        list =
+            list.filter(device =>
+
+                (
+                    displayName(device) +
+                    " " +
+                    device.id
+                )
+                .toLowerCase()
+                .includes(query)
+
+            );
+    }
+
+
+    if (
+        sort.value === "signal"
+    ) {
+
+        list.sort(
+            (a, b) =>
+                b.rssi -
+                a.rssi
+        );
+    }
+
+
+    else if (
+        sort.value === "recent"
+    ) {
+
+        list.sort(
+            (a, b) =>
+                b.lastSeen -
+                a.lastSeen
+        );
+    }
+
+
+    else {
+
+        list.sort(
+            (a, b) =>
+                displayName(a)
+                    .localeCompare(
+                        displayName(b)
+                    )
+        );
+    }
+
+
+    deviceList.innerHTML = "";
+
+
+    if (!list.length) {
+
+        deviceList.innerHTML =
+            `<div class="empty">
+                NO SIGNAL DATA
+             </div>`;
+
+        renderTarget();
+
+        return;
+    }
+
+
+    for (
+        const device of list
+    ) {
+
+        const card =
+            document.createElement(
+                "div"
+            );
+
+
+        card.className =
+            isActive(device)
+                ? "device"
+                : "device lost";
+
+
+        card.innerHTML =
+            `
+            <div class="device-top">
+
+                <div class="device-name">
+                    ${escapeHTML(
+                        displayName(device)
+                    )}
+                </div>
+
+                <div class="device-rssi">
+                    ${Math.round(
+                        device.rssi
+                    )} dBm
+                </div>
+
+            </div>
+
+            <div class="device-info">
+
+                <div>
+                    ${
+                        isActive(device)
+                            ? proximity(
+                                device.rssi
+                              )
+                            : "LOST"
+                    }
+                </div>
+
+                <div class="device-id">
+                    ${escapeHTML(
+                        device.id
+                    )}
+                </div>
+
+                <div>
+                    ${device.samples}
+                    advertisements
+                </div>
+
+            </div>
+
+            <div class="signal-bar">
+
+                <div
+                    class="signal-fill"
+                    style="
+                        width:
+                        ${signalPercent(
+                            device.rssi
+                        )}%
+                    "
+                ></div>
+
+            </div>
+            `;
+
+
+        card.addEventListener(
+            "click",
+            () =>
+                openTarget(
+                    device.id
+                )
+        );
+
+
+        deviceList.appendChild(
+            card
+        );
+    }
+
+
+    renderTarget();
+}
+
+
+search.addEventListener(
+    "input",
+    render
+);
+
+
+sort.addEventListener(
+    "change",
+    render
+);
+
+const overlay =
+    document.getElementById(
+        "targetOverlay"
+    );
+
+
+function openTarget(id) {
+
+    selectedDeviceId =
+        id;
+
+
+    overlay.classList.remove(
+        "hidden"
+    );
+
+
+    renderTarget();
+}
+
+
+document
+    .getElementById(
+        "closeTarget"
+    )
+    .onclick =
+    () => {
+
+        selectedDeviceId =
+            null;
+
+        overlay.classList.add(
+            "hidden"
+        );
+    };
+
+
+document
+    .getElementById(
+        "saveAlias"
+    )
+    .onclick =
+    () => {
+
+        if (!selectedDeviceId)
+            return;
+
+
+        saveDeviceAlias(
+            selectedDeviceId,
+            document.getElementById(
+                "aliasInput"
+            ).value
+        );
+
+
+        render();
+    };
+
+
+function renderTarget() {
+
+    if (!selectedDeviceId)
+        return;
+
+
+    const d =
+        devices.get(
+            selectedDeviceId
+        );
+
+
+    if (!d)
+        return;
+
+
+    document.getElementById(
+        "targetName"
+    ).textContent =
+        displayName(d);
+
+
+    document.getElementById(
+        "targetId"
+    ).textContent =
+        d.id;
+
+
+    document.getElementById(
+        "targetRSSI"
+    ).textContent =
+        `${Math.round(
+            d.rssi
+        )} dBm`;
+
+
+    document.getElementById(
+        "targetProximity"
+    ).textContent =
+        isActive(d)
+            ? proximity(d.rssi)
+            : "SIGNAL LOST";
+
+
+    document.getElementById(
+        "targetFill"
+    ).style.width =
+        `${signalPercent(
+            d.rssi
+        )}%`;
+
+
+    document.getElementById(
+        "targetTrend"
+    ).textContent =
+        getTrend(d);
+
+
+    document.getElementById(
+        "firstSeen"
+    ).textContent =
+        formatTime(
+            d.firstSeen
+        );
+
+
+    document.getElementById(
+        "lastSeen"
+    ).textContent =
+        formatTime(
+            d.lastSeen
+        );
+
+
+    document.getElementById(
+        "strongestSeen"
+    ).textContent =
+        `${d.strongest} dBm`;
+
+
+    document.getElementById(
+        "samples"
+    ).textContent =
+        d.samples;
+
+
+    /* RAW FINGERPRINT */
+
+
+    document.getElementById(
+        "rawName"
+    ).textContent =
+        d.name ||
+        "NOT ADVERTISED";
+
+
+    document.getElementById(
+        "rawTxPower"
+    ).textContent =
+        d.txPower !== null
+            ? `${d.txPower} dBm`
+            : "NOT ADVERTISED";
+
+
+    document.getElementById(
+        "rawAppearance"
+    ).textContent =
+        d.appearance !== null
+            ? String(d.appearance)
+            : "NOT ADVERTISED";
+
+
+    document.getElementById(
+        "rawUUIDs"
+    ).innerHTML =
+        formatUUIDs(
+            d.uuids
+        );
+
+
+    document.getElementById(
+        "rawManufacturer"
+    ).innerHTML =
+        formatDataEntries(
+            d.manufacturerData
+        );
+
+
+    document.getElementById(
+        "rawService"
+    ).innerHTML =
+        formatDataEntries(
+            d.serviceData
+        );
+
+
+    const aliasInput =
+        document.getElementById(
+            "aliasInput"
+        );
+
+
+    if (
+        document.activeElement !==
+        aliasInput
+    ) {
+
+        aliasInput.value =
+            d.alias || "";
+    }
+
+
+    drawGraph(
+        d.history
+    );
+}
+
+function formatUUIDs(uuids) {
+
+    if (
+        !uuids ||
+        !uuids.length
+    ) {
+
+        return "NONE ADVERTISED";
+    }
+
+
+    return uuids
+        .map(uuid =>
+            escapeHTML(uuid)
+        )
+        .join("<br>");
+}
+
+
+function formatDataEntries(entries) {
+
+    if (
+        !entries ||
+        !entries.length
+    ) {
+
+        return "NONE ADVERTISED";
+    }
+
+
+    return entries
+        .map(entry => {
+
+            return `
+                <div class="raw-entry">
+
+                    <strong>
+                        ID:
+                        ${escapeHTML(
+                            entry.key
+                        )}
+                    </strong>
+
+                    <br>
+
+                    ${escapeHTML(
+                        entry.hex
+                    )}
+
+                </div>
+            `;
+
+        })
+        .join("");
+}
+
+
+function getTrend(device) {
+
+    if (!isActive(device))
+        return "SIGNAL LOST";
+
+
+    if (
+        device.history.length <
+        10
+    )
+        return "ACQUIRING SIGNAL";
+
+
+    const recent =
+        device.history.slice(-5);
+
+
+    const previous =
+        device.history.slice(
+            -10,
+            -5
+        );
+
+
+    const difference =
+        average(recent) -
+        average(previous);
+
+
+    if (difference > 2.5)
+        return "GETTING STRONGER ↑";
+
+
+    if (difference < -2.5)
+        return "GETTING WEAKER ↓";
+
+
+    return "SIGNAL STABLE";
+}
+
+
+function average(array) {
+
+    return (
+        array.reduce(
+            (a, b) =>
+                a + b,
+            0
+        ) /
+        array.length
+    );
+}
+
+
+function drawGraph(history) {
+
+    const canvas =
+        document.getElementById(
+            "graph"
+        );
+
+
+    const rect =
+        canvas.getBoundingClientRect();
+
+
+    if (
+        !rect.width ||
+        !rect.height
+    )
+        return;
+
+
+    const scale =
+        window.devicePixelRatio ||
+        1;
+
+
+    canvas.width =
+        rect.width *
+        scale;
+
+
+    canvas.height =
+        rect.height *
+        scale;
+
+
+    const ctx =
+        canvas.getContext("2d");
+
+
+    ctx.scale(
+        scale,
+        scale
+    );
+
+
+    ctx.clearRect(
+        0,
+        0,
+        rect.width,
+        rect.height
+    );
+
+
+    if (
+        history.length < 2
+    )
+        return;
+
+
+    ctx.strokeStyle =
+        "#ffffff";
+
+
+    ctx.lineWidth =
+        2;
+
+
+    ctx.beginPath();
+
+
+    history.forEach(
+        (rssi, index) => {
+
+            const x =
+                (
+                    index /
+                    Math.max(
+                        history.length - 1,
+                        1
+                    )
+                ) *
+                rect.width;
+
+
+            const y =
+                rect.height -
+                (
+                    signalPercent(
+                        rssi
+                    ) /
+                    100
+                ) *
+                rect.height;
+
+
+            if (!index)
+                ctx.moveTo(x, y);
+
+            else
+                ctx.lineTo(x, y);
+        }
+    );
+
+
+    ctx.stroke();
+}
+
+
+
+function formatTime(timestamp) {
+
+    return new Date(
+        timestamp
+    ).toLocaleTimeString();
+}
+
+
+function escapeHTML(value) {
+
+    const div =
+        document.createElement(
+            "div"
+        );
+
+
+    div.textContent =
+        String(value);
+
+
+    return div.innerHTML;
+}
+
+
+setInterval(
+    render,
+    1000
+);
+
+</script>
+
+</body>
+</html>
